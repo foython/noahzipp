@@ -2,7 +2,9 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 import random
 import string
+from django.contrib.auth import get_user_model
 # Create your models here.
+# User = get_user_model()
 
 
 class TimeStamp(models.Model):
@@ -20,6 +22,8 @@ class CustomUser(AbstractUser, TimeStamp):
         ('USER', 'User'),
         
     )
+    first_name = models.CharField(max_length=64, blank=True, null=True)
+    last_name = models.CharField(max_length=64, blank=True, null=True)
     role = models.CharField(max_length=28, choices=ROLES, default='USER')
     gender = models.CharField(max_length=28, blank=True, null=True)
     profession = models.CharField(max_length=64, blank=True, null=True)
@@ -44,3 +48,6 @@ class CustomUser(AbstractUser, TimeStamp):
     
     def __str__(self):
         return self.username
+    
+
+    
