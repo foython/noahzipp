@@ -86,6 +86,7 @@ def verify_otp(request):
         
         if user.otp == otp:
             user.is_varified = True
+            user.otp = None  
             user.save()
             return Response(
                 {
@@ -109,6 +110,7 @@ def verify_otp(request):
             status=400
         )
     
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def normal_login(request):
@@ -147,48 +149,154 @@ def logout_view(request):
         return Response({"detail": "Invalid token or token already blacklisted."}, status=400)
     
 
+    
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def change_email(request):
-    old_email = request.data.get('old_email', None)
-    new_email = request.data.get('new_email', None)
+def request_email_change_otp(request):
+  
+    old_email = request.data.get('old_email')
+    new_email = request.data.get('new_email')
+    user = request.user
     
     if not old_email or not new_email:
         return Response(
             {"message": "Both old and new email addresses are required."},
-            status=400
-        )
-
-    user = request.user
-    
-    if user.email != old_email:
+            status=status.HTTP_400_BAD_REQUEST
+        )        
+ 
+    if user.email.lower() == new_email.lower():
         return Response(
-            {"message": "The provided old email does not match your current email."},
-            status=400
+            {"message": "The provided new email matched with your current email."},
+            status=status.HTTP_400_BAD_REQUEST
         )
    
-    if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
+   
+    if User.objects.filter(username=new_email).exists():
         return Response(
             {"message": "This new email is already in use by another user."},
-            status=400
+            status=status.HTTP_400_BAD_REQUEST
         )
-
-    
-    try:
-        user.email = new_email
-        user.username = new_email # Recommended to keep username and email in sync
-        user.save()
         
-        return Response(
-            {"message": "Email address updated successfully."},
-            status=200
+    try:        
+        otp = user.generate_otp()
+
+        subject = 'Verify your new email address'
+        message = f'Hello, here is your OTP to verify your new email:{otp}'
+        from_email = 'support@gameplanai.co.uk'
+        recipient_list = [new_email]
+
+        email = EmailMessage(subject, message, from_email, recipient_list)
+        email.send()
+    
+        return Response( {                
+                
+                'message': 'OTP Sent Successfully.'
+            }, 
+            status=201
         )
     except Exception as e:
         return Response(
-            {"message": f"An unexpected error occurred: {str(e)}"},
-            status=500
+            {"Message": "Something went wrong.", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_email_verify_otp(request):
+    user = request.user
+    otp = request.data.get('otp')
+    new_email = request.data.get('email')  
+
+    if not new_email or not otp:
+        return Response(
+            {"Message": "Both email and OTP are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:             
+
+       
+        if user.otp != otp:
+            return Response(
+                {"Message": "Invalid OTP."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Check if the OTP is expired (e.g., more than 10 minutes old)
+        if user.updated_at < timezone.now() - timedelta(minutes=TOKEN_EXPIRY_MINUTES):
+            return Response(
+                {"Message": "OTP expired."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        
+        payload = {
+            "new_email": new_email,
+            "ts": timezone.now().timestamp()
+        }
+        token = signing.dumps(payload, salt="change-email")
+
+        return Response(
+            {
+                "Message": "OTP verified successfully. Use the token to change your email.",
+                "change_token": token
+            },
+            status=status.HTTP_200_OK
+        )
+
+    except User.DoesNotExist:
+        return Response(
+            {"Message": "No account found with that email."}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {"Message": f"An unexpected error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def change_email_final(request):
+   
+    token = request.data.get("change_token")
+    user = request.user
+
+    if not token:
+        return Response(
+            {"Message": "A change token is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+       
+        data = signing.loads(token, salt="change-email", max_age=TOKEN_EXPIRY_MINUTES * 60)
+        new_email = data.get("new_email")
+        
+        print(new_email)
+        
+        if User.objects.filter(username=new_email).exists():
+            return Response(
+                {"Message": "This new email is already in use by another user."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.email = new_email
+        user.username = new_email  
+        user.otp = None  
+        user.save()
+
+        return Response({"Message": "Email updated successfully."}, status=status.HTTP_200_OK)
+
+    except signing.SignatureExpired:
+        return Response({"Message": "Change token expired."}, status=status.HTTP_400_BAD_REQUEST)
+    except signing.BadSignature:
+        return Response({"Message": "Invalid change token."}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"Message": f"Something went wrong: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -265,7 +373,7 @@ TOKEN_EXPIRY_MINUTES = 15
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
-def forgot_password_verify_otp(request):
+def on_change_verify_otp(request):
     otp = request.data.get('otp')
     email = request.data.get('email')
 
@@ -360,10 +468,10 @@ def resend_otp(request):
         )
 
     try:
-        # Corrected: Get the user object by email (or username)
+       
         user = User.objects.get(email=email) # Using email field is more direct
 
-        # Corrected: Call generate_otp directly on the user object you just retrieved
+       
         otp = user.generate_otp()
         
         subject = 'Here is your verification code'

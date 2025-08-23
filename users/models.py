@@ -13,7 +13,7 @@ class Chatbot(TimeStamp):
         ('PROFESSIONAL', 'Professional'),
     )
     owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='chatbot_owner')
-    name = models.CharField(max_length=128)
+    name = models.CharField(max_length=128, unique=True)
     chatting_style = models.CharField(max_length=128, choices=STYLE, default='CASUAL')
     description = models.TextField(blank=True, null=True)      
     logo = models.ImageField(upload_to='chatbot_logo/', blank=True, null=True)
@@ -30,6 +30,7 @@ class Services(TimeStamp):
     )
     chatbot = models.ForeignKey(Chatbot, on_delete=models.CASCADE, related_name='chatbot_service')
     service_name = models.CharField(max_length=128)
+    Description_of_service = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=28, choices=STATUS, default='USER')
     diccount = models.BooleanField(default=False)
@@ -49,6 +50,7 @@ class Appointments(TimeStamp):
         ('RESCHEDULED', 'Rescheduled'),
     )
     service = models.ForeignKey(Services, on_delete=models.CASCADE, related_name='appointments')
+    Description_of_service = models.TextField()
     customer = models.CharField(max_length=128)
     contact = models.CharField(max_length=36)
     date = models.DateField()

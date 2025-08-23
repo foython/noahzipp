@@ -1,18 +1,21 @@
 # accounts/serializers.py
 from rest_framework import serializers
+from datetime import date
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 
 User = get_user_model()
 
+
 class CustomUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+    age = serializers.SerializerMethodField(read_only=True)  # <-- add this
 
     class Meta:
         model = User
         fields = [
-            'id', 'username', 'email', 'password', 'role', 'gender', 'profession',
-            'date_of_birth', 'profile_picture', 'phone_number', 'location', 'country',
+            'id', 'first_name', 'last_name', 'username', 'email', 'password', 'role', 'gender', 'profession',
+            'date_of_birth', 'age', 'profile_picture', 'phone_number', 'location', 'country',
             'time_zone', 'upload_logo', 'about_yourself', 'professional_background'
         ]
         extra_kwargs = {
@@ -24,6 +27,14 @@ class CustomUserSerializer(serializers.ModelSerializer):
         # Hash the password before saving
         validated_data['password'] = make_password(validated_data['password'])
         return super().create(validated_data)
+
+    def get_age(self, obj):        
+        if not obj.date_of_birth:
+            return None
+        today = date.today()
+        return today.year - obj.date_of_birth.year - (
+            (today.month, today.day) < (obj.date_of_birth.month, obj.date_of_birth.day)
+        )
 
 
 

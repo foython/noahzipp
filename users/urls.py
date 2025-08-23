@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import manage_chatbots, manage_services, manage_appointments
+from .views import manage_chatbots, manage_services, manage_appointments, monthly_appointments_api_view, appointment_summary_api_view
 
 urlpatterns = [
     # Chatbot URLs
@@ -13,4 +13,6 @@ urlpatterns = [
     # Appointments URLs
     path('chatbots_appointments/', manage_appointments, name='appointment-list'),
     path('chatbots_appointments/<int:pk>/', manage_appointments, name='appointment-detail'),
+    path('chatbots_appointments/chart/data/', monthly_appointments_api_view, name='appointment-chart-data'), 
+    path('appointments_summary/', appointment_summary_api_view, name='appointments_summary_api'),
 ]
