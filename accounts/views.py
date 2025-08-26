@@ -20,59 +20,70 @@ from django.core import signing
 # Create your views here.
 User = get_user_model()
 
+import random
+import string
+
+User = get_user_model()
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def normal_register(request):
     email = request.data.get('email', None)
     password = request.data.get('password', None)
 
-    if email is None or password is None:
+    if not email or not password:
         return Response(
-            {
-                "Message": "Both Email and Passwords are required."
-            },
-            status=400
-        )
-    user = User.objects.filter(username=email).first()
-    if user.is_varified == False:
-        return Response(
-            {
-                "Message": "Please verify your OTP first."
-            },
-            status=400
-        )
-
-    if User.objects.filter(username=email).count() > 0:
-        return Response(
-            {
-                "Message": "The email is already registered."
-            },
+            {"Message": "Both Email and Passwords are required."},
             status=400
         )
     
-    user = User()
-    user.username = email
-    user.email = email
-    user.set_password(password)
-    user.save()
+    # Check if a user with this email already exists
+    user = User.objects.filter(username=email).first()
 
-    otp = user.generate_otp()
+    if user:
+        # User already exists
+        if not user.is_varified:
+            # User exists but is not verified, resend OTP
+            otp = user.generate_otp()
+            # Send email code...
+            return Response(
+                {"Message": "User already exists but is not verified. A new OTP has been sent."},
+                status=200
+            )
+        else:
+            # User already exists and is verified
+            return Response(
+                {"Message": "The email is already registered."},
+                status=400
+            )
+    
+    # If we get here, no user exists, so create a new one
+    try:
+        user = User(username=email, email=email)
+        user.set_password(password)
+        user.save()
 
-    subject = 'Here is your verification code'
-    message = f'Hello, please verify your account with the OTP: {otp}'
-    from_email = 'support@gameplanai.co.uk'
-    recipient_list = [email]
+        otp = user.generate_otp()
+        
+        # Email sending logic
+        subject = 'Here is your verification code'
+        message = f'Hello, please verify your account with the OTP: {otp}'
+        from_email = 'support@gameplanai.co.uk'
+        recipient_list = [email]
 
-    email = EmailMessage(subject, message, from_email, recipient_list)
-    email.send()
- 
-    return Response( {
-            
-            
-            'message': 'OTP Sent Successfully.'
-        }, 
-        status=201
-    )
+        email_message = EmailMessage(subject, message, from_email, recipient_list)
+        email_message.send()
+        
+        return Response(
+            {'message': 'OTP Sent Successfully.'},
+            status=201
+        )
+    except Exception as e:
+        return Response(
+            {"Message": f"An error occurred: {str(e)}"},
+            status=500
+        )
+
 
 
 @api_view(['POST'])
