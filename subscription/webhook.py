@@ -7,9 +7,14 @@ from accounts.models import CustomUser
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
+import os
+from dotenv import load_dotenv 
+load_dotenv()
 
-stripe.api_key = "sk_test_51ReHLiH6fkQlm6OO9pBJsy4A9TH9aHZqNjm6dXdz3Rka4tw4VI5p4AuS0rOMUit8XJNPP9DKPiYalfXneCfVg8F300P8KRrKOi"
-STRIPE_WEBHOOK_SECRET = 'whsec_Nbir3k2DtSEwuZcjk3LTi1t2PQQ8SbGa'
+import stripe
+stripe.api_key = os.getenv("STRIPE_API_KEY")
+
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 
 @csrf_exempt
@@ -17,7 +22,7 @@ STRIPE_WEBHOOK_SECRET = 'whsec_Nbir3k2DtSEwuZcjk3LTi1t2PQQ8SbGa'
 def stripe_webhook(request):
     payload = request.body    
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
-    endpoint_secret = 'whsec_Nbir3k2DtSEwuZcjk3LTi1t2PQQ8SbGa'                       
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")                     
 
     try:
         event = stripe.Webhook.construct_event(
