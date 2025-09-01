@@ -8,9 +8,12 @@ from accounts.models import CustomUser
 
 from django.conf import settings
 from django.http import JsonResponse
+import os, json
+from dotenv import load_dotenv 
+load_dotenv()
 
 import stripe
-stripe.api_key = "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"
+stripe.api_key = os.getenv("STRIPE_API_KEY")
 
 
 
