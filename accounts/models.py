@@ -19,9 +19,14 @@ class TimeStamp(models.Model):
 class CustomUser(AbstractUser, TimeStamp):
     ROLES = (
         ('ADMIN', 'Admin'),
-        ('USER', 'User'),
-        
+        ('USER', 'User'),        
     )
+
+    STATUS = (
+        ('ACTIVE', 'Active'),
+        ('HOLD', 'Hold'),
+    )
+
     first_name = models.CharField(max_length=64, blank=True, null=True)
     last_name = models.CharField(max_length=64, blank=True, null=True)
     role = models.CharField(max_length=28, choices=ROLES, default='USER')
@@ -38,6 +43,12 @@ class CustomUser(AbstractUser, TimeStamp):
     professional_background = models.TextField(blank=True, null=True)
     is_varified = models.BooleanField(default=False)
     otp = models.CharField(max_length=6, blank=True, null=True) 
+    is_subscribed = models.BooleanField(default=False)
+    subsciption_expires_on = models.DateTimeField(blank=True, null=True)
+    subscription_status = models.CharField(max_length=100, blank=True,)
+    subscription_id = models.CharField(max_length=100, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS, default='ACTIVE')
+    
 
     def generate_otp(self):
         otp = ''.join(random.choices(string.digits, k=4))

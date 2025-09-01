@@ -1,10 +1,11 @@
 from django.urls import path
-from .views import manage_chatbots, manage_services, create_appointment_view, monthly_appointments_api_view, appointment_summary_api_view, manage_discounts, user_availability_view
+from .views import manage_chatbots, manage_services, create_appointment_view, monthly_appointments_api_view, appointment_summary_api_view, manage_discounts, user_availability_view, set_unavailability_view, user_notification_view, chatbot_id
 
 urlpatterns = [
     # Chatbot URLs
     path('chatbots/', manage_chatbots, name='chatbot-list'),
     path('chatbots/<int:pk>/', manage_chatbots, name='chatbot-detail'),
+    path('chatbots_id/', chatbot_id, name='chatbot-id'),
     
     # Services URLs
     path('services/', manage_services, name='service-list'),
@@ -14,9 +15,12 @@ urlpatterns = [
     
     # Appointments URLs
     path('appointments/', create_appointment_view, name='appointment-list'),
-    # path('chatbots_appointments/<int:pk>/', manage_appointments, name='appointment-detail'),
+    path('chatbots_appointments/<int:pk>/', create_appointment_view, name='appointment-detail'),
     path('chatbots_appointments/chart/data/', monthly_appointments_api_view, name='appointment-chart-data'), 
     path('appointments_summary/', appointment_summary_api_view, name='appointments_summary_api'),
     path('availability/', user_availability_view, name='user_availability_api'),
+    path('set-unavailability/<int:pk>/', set_unavailability_view, name='unavailability-detail'),
+    path('set-unavailability/', set_unavailability_view, name='set-unavailability'),
+    path('notifications/', user_notification_view, name='user-notifications-list'),
 
 ]

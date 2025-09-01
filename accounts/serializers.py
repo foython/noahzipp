@@ -16,7 +16,8 @@ class CustomUserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'first_name', 'last_name', 'username', 'email', 'password', 'role', 'gender', 'profession',
             'date_of_birth', 'age', 'profile_picture', 'phone_number', 'location', 'country',
-            'time_zone', 'upload_logo', 'about_yourself', 'professional_background'
+            'time_zone', 'upload_logo', 'about_yourself', 'professional_background', 'status', 'created_at', 'is_subscribed', 'subsciption_expires_on',
+            'subscription_status'
         ]
         extra_kwargs = {
             'email': {'required': True},

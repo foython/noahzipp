@@ -447,7 +447,16 @@ def forgot_password_change(request):
 @api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def edit_profile(request):
-   
+    # if request.user.role == 'ADMIN':
+    #     if request.method == 'GET':
+            
+    #         users = CustomUser.objects.filter(role='USER')
+    #         serializer = CustomUserSerializer(users, many=True)
+    #         return Response(serializer.data, status=status.HTTP_200_OK)
+    #     else:
+            
+    #         return Response({"error": "Admins can only view all users on this endpoint."}, status=status.HTTP_403_FORBIDDEN)
+        
     try:
         user = request.user
     except CustomUser.DoesNotExist:

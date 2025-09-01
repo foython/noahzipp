@@ -4,7 +4,9 @@ from .models import (
     Services, 
     service_discount, 
     Appointments, 
-    User_avalablity
+    User_avalablity,
+    User_unavailability,
+    user_notification
    
 )
 
@@ -45,18 +47,20 @@ class ServiceDiscountAdmin(admin.ModelAdmin):
     )
 
 # Admin class for the Appointments model
-@admin.register(Appointments)
-class AppointmentsAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'service', 'date', 'time', 'status')
-    search_fields = ('customer', 'contact')
-    list_filter = ('status', 'date')
-    fieldsets = (
-        (None, {
-            'fields': (
-                'service', 'Description_of_service', 'customer', 
-                'contact', 'date', 'time', 'about', 'status'
-            )
-        }),
-    )
+# @admin.register(Appointments)
+# class AppointmentsAdmin(admin.ModelAdmin):
+#     list_display = ('customer', 'service', 'date', 'time', 'status')
+#     search_fields = ('customer', 'contact')
+#     list_filter = ('status', 'date')
+#     fieldsets = (
+#         (None, {
+#             'fields': (
+#                 'service', 'Description_of_service', 'customer', 
+#                 'contact', 'date', 'time', 'about', 'status'
+#             )
+#         }),
+#     )
 
 admin.site.register(User_avalablity)
+admin.site.register(User_unavailability)
+admin.site.register(user_notification)

@@ -71,18 +71,17 @@ class Appointments(TimeStamp):
     )
     
     service = models.ForeignKey(Services, on_delete=models.CASCADE, related_name='appointments')
-    Description_of_service = models.TextField()
-    customer = models.CharField(max_length=128)
-    contact = models.CharField(max_length=36)
-    date = models.DateField()   
-    
-    time = models.CharField(max_length=8, validators=[time_validator])
-    
-    about = models.TextField()
+    customer_name = models.CharField(max_length=128)    
+    contact_number = models.CharField(max_length=36, blank=True)    
+    customer_email = models.CharField(max_length=128, blank=True)
+    service_description = models.TextField()
+    date = models.DateField(blank=True)      
+    time = models.CharField(max_length=8, blank=True, validators=[time_validator])    
+    about = models.TextField(blank=True)
     status = models.CharField(max_length=28, choices=STATUS, default='ACTIVE')   
 
     def __str__(self):
-        return self.customer + ' - ' + str(self.date) + ' ' + str(self.time)
+        return self.customer_name + ' - ' + str(self.date) + ' ' + str(self.time)
 
 
 
@@ -102,3 +101,26 @@ class User_avalablity(TimeStamp):
     time_slot_duration = models.IntegerField(default=30, help_text="Duration in minutes")
     def __str__(self):
         return self.user.username + ' - ' + ', '.join(self.days)
+    
+
+class User_unavailability(TimeStamp):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_unavalablit')
+    reason = models.CharField(max_length=128)
+    from_date = models.DateField()
+    from_time = models.CharField(max_length=8, validators=[time_validator])
+    to_date = models.DateField()
+    to_time = models.CharField(max_length=8, validators=[time_validator])
+
+    def __str__(self):
+        return self.user.username + ' - ' + str(self.from_date) + ' ' + str(self.from_time) + ' to ' + str(self.to_date) + ' ' + str(self.to_time)
+
+
+class user_notification(TimeStamp):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_notification')
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.user.username + ' - ' + self.message[:20] + ('...' if len(self.message) > 20 else '')
+    
+
