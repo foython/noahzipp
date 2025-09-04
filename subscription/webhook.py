@@ -33,17 +33,15 @@ def stripe_webhook(request):
     except stripe.error.SignatureVerificationError as e:
         return HttpResponse(status=400)
 
-    # Handle the event based on the type
+   
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        subscription_id = session.get('subscription')
-        # Retrieve user_id from metadata
+        subscription_id = session.get('subscription')       
         user_id = session['metadata']['user_id']
         package = session['metadata']['package']
         metadata = {"user_id": user_id, "package": package}
         subscription = stripe.Subscription.retrieve(subscription_id)
-        updated_subscription = stripe.Subscription.modify(subscription.id, metadata=metadata)
-        # Handle the subscription logic for the first-time subscription
+        updated_subscription = stripe.Subscription.modify(subscription.id, metadata=metadata)       
         handle_subscription_started(user_id, package, subscription_id)
 
     elif event['type'] == 'invoice.payment_succeeded':
@@ -57,11 +55,9 @@ def stripe_webhook(request):
         handle_subscription_renewal(user_id,package, subscription_id)
 
     elif event['type'] == 'invoice.payment_failed':
-        invoice = event['data']['object']
-        # Retrieve user_id from metadata
+        invoice = event['data']['object']        
         user_id = invoice['metadata']['user_id']
-        package = invoice['metadata']['package']
-        # Handle the case when payment fails
+        package = invoice['metadata']['package']       
         handle_failed_payment(user_id, package)
 
     return JsonResponse({'status': 'success'}, status=200)
@@ -70,7 +66,7 @@ def stripe_webhook(request):
 
 def handle_subscription_started(user_id, package, subscription_id):
     try:
-        # Corrected line: query CustomUser directly using the primary key (pk)
+        
         user_profile = CustomUser.objects.get(pk=user_id)
 
         if package == "monthly":
@@ -82,10 +78,7 @@ def handle_subscription_started(user_id, package, subscription_id):
         
         user_profile.is_subscribed = True
         user_profile.subscription_id = subscription_id
-        # is_expired field seems to be a custom field not in the provided model.
-        # If it's a field you've added, ensure its name is correct.
-        # Otherwise, remove this line to prevent errors.
-        # user_profile.is_expired = False 
+                
         user_profile.save()
 
         print(f"Subscription activated for user {user_id}.")
@@ -96,7 +89,7 @@ def handle_subscription_started(user_id, package, subscription_id):
 
 def handle_subscription_renewal(user_id, package, subscription_id):
     try:
-        # Corrected line: query CustomUser directly using the primary key (pk)
+        
         user_profile = CustomUser.objects.get(pk=user_id)
         user_profile.subscription_status = 'subscribed'
         
@@ -110,8 +103,7 @@ def handle_subscription_renewal(user_id, package, subscription_id):
         user_profile.is_subscribed = True
         
         user_profile.subscription_id = subscription_id
-        # Same as above, ensure this field exists or remove the line.
-        # user_profile.is_expired = False 
+        
         user_profile.save()
 
         print(f"Subscription renewed for user {user_id}.")
@@ -121,23 +113,19 @@ def handle_subscription_renewal(user_id, package, subscription_id):
 
 
 def handle_failed_payment(user_id):
-    try:
-        # Corrected line: query CustomUser directly using the primary key (pk)
+    try:        
         user_profile = CustomUser.objects.get(pk=user_id)
-
-        # Mark subscription as expired or suspended
+      
         user_profile.subscription_status = 'not_subscribed'
-        # Same as above, ensure this field exists or remove the line.
-        # user_profile.is_expired = True 
-        # The package_name field doesn't exist in your model.
-        # You should either remove this line or add the field to your model.
-        # user_profile.package_name = "None"
+        
         user_profile.save()
 
         print(f"Payment failed for user {user_id}, subscription suspended.")
 
     except CustomUser.DoesNotExist:
         print(f"No user found with user_id {user_id}.")
+
+
 
 # @csrf_exempt
 # @require_http_methods(["POST"])

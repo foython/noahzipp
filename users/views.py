@@ -10,6 +10,8 @@ from django.db.models.functions import TruncMonth
 from drf_spectacular.utils import extend_schema
 from django.db import IntegrityError
 from django.db.models import Q
+from datetime import datetime, date, time 
+from rest_framework.pagination import PageNumberPagination
 
 @extend_schema(request=ChatbotSerializer,responses={201: ChatbotSerializer},)
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
@@ -25,6 +27,7 @@ def manage_chatbots(request, pk=None):
             try:
                 chatbot = Chatbot.objects.get(pk=pk, owner=request.user)
                 serializer = ChatbotSerializer(chatbot)
+                
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except Chatbot.DoesNotExist:
                 return Response({"error": "Chatbot not found or you don't have permission."}, status=status.HTTP_404_NOT_FOUND)
@@ -191,7 +194,7 @@ def manage_discounts(request, pk=None):
             discount.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-
+from .utils import validate_appointment_creation
 
 @extend_schema(request=AppointmentsSerializer, responses={201: AppointmentsSerializer})
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
@@ -199,118 +202,53 @@ def manage_discounts(request, pk=None):
 def create_appointment_view(request, pk=None):
     if request.method == 'GET':
         if pk is None:
+            
             user_services = Services.objects.filter(user=request.user)
+            
             appointments = Appointments.objects.filter(service__in=user_services)
-            serializer = AppointmentsSerializer(appointments, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+
+            paginator = PageNumberPagination()
+            paginator.page_size = 10 
+
+           
+            paginated_appointments = paginator.paginate_queryset(appointments, request)
+
+           
+            serializer = AppointmentsSerializer(paginated_appointments, many=True)
+            
+            return paginator.get_paginated_response(serializer.data)
         else:
             try:
+                
                 appointment = Appointments.objects.get(pk=pk, service__user=request.user)
                 serializer = AppointmentsSerializer(appointment)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except Appointments.DoesNotExist:
                 return Response({"error": "Appointment not found or you don't have permission."}, status=status.HTTP_404_NOT_FOUND)
 
-    elif request.method == 'POST':
-        serializer = AppointmentsSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    elif request.method == 'POST':
         try:
-            service = serializer.validated_data['service']
+            service = Services.objects.get(pk=request.data.get('service'))
             service_provider = service.user
         except Services.DoesNotExist:
             return Response({"detail": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
 
-      
-        user = service_provider
-        current_month_start = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        serializer = AppointmentsSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Call the reusable validation function
+        validation_response = validate_appointment_creation(serializer.validated_data, service_provider)
         
-       
-        
-        subscription_status = user.subscription_status if hasattr(user, 'subscription_status') else None
-        print(subscription_status)
-        appointment_limit = 0
-        if subscription_status == 'Monthly':
-            appointment_limit = 1
-        elif subscription_status == 'Quarterly':
-            appointment_limit = 150
-        elif subscription_status == 'Yearly':
-            appointment_limit = 600
-        
-        if appointment_limit > 0:
-          
-            appointment_count = Appointments.objects.filter(
-                service__user=user,
-                created_at__gte=current_month_start
-            ).count()
-            
-            if appointment_count >= appointment_limit:
-                return Response(
-                    {"detail": "Your package has a limit of {} appointments. Please upgrade your package to add more.".format(appointment_limit)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-                
-        requested_date = serializer.validated_data['date']
-        requested_time_str = serializer.validated_data['time']
+        # If the function returns a response, it means a validation check failed.
+        if validation_response:
+            return validation_response
 
-        try:
-            requested_time = datetime.strptime(requested_time_str, '%I:%M %p').time()
-        except ValueError:
-            return Response({"time": "Invalid time format. Please use 'hh:mm AM/PM' (e.g., '02:30 PM')."}, status=status.HTTP_400_BAD_REQUEST)
-
-        requested_datetime = datetime.combine(requested_date, requested_time)
-        
-        try:
-            user_availability = User_avalablity.objects.get(user=service_provider)
-            appointment_duration = user_availability.time_slot_duration
-        except User_avalablity.DoesNotExist:
-            appointment_duration = 30 
-        
-        requested_end_datetime = requested_datetime + timedelta(minutes=appointment_duration)
-
-       
-        unavailability_periods = User_unavailability.objects.filter(
-            user=service_provider,
-            from_date__lte=requested_date,
-            to_date__gte=requested_date
-        )
-
-        for period in unavailability_periods:
-            try:
-                unavailability_start = datetime.combine(period.from_date, datetime.strptime(period.from_time, '%I:%M %p').time())
-                unavailability_end = datetime.combine(period.to_date, datetime.strptime(period.to_time, '%I:%M %p').time())
-            except ValueError:
-                continue
-                
-            if (requested_datetime < unavailability_end) and (requested_end_datetime > unavailability_start):
-                return Response(
-                    {"detail": f"User is unavailable from {unavailability_start.strftime('%Y-%m-%d %I:%M %p')} to {unavailability_end.strftime('%Y-%m-%d %I:%M %p')}."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-        # 2. Check for overlapping appointments
-        existing_appointments = Appointments.objects.filter(
-            service__user=service_provider,
-            date=requested_date,
-            status='ACTIVE'
-        )
-
-        for existing_appointment in existing_appointments:
-            try:
-                existing_availability = User_avalablity.objects.get(user=service_provider)
-                existing_duration = existing_availability.time_slot_duration
-            except User_avalablity.DoesNotExist:
-                existing_duration = 30
-
-            existing_start_time = datetime.combine(existing_appointment.date, datetime.strptime(existing_appointment.time, '%I:%M %p').time())
-            existing_end_time = existing_start_time + timedelta(minutes=existing_duration)
-            
-            if (requested_datetime < existing_end_time) and (requested_end_datetime > existing_start_time):
-                return Response({"detail": "This time slot overlaps with an existing appointment."}, status=status.HTTP_400_BAD_REQUEST)
-
+        # If validation passes, save the serializer
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+    
     elif request.method == 'PUT':
         if pk is None:
             return Response({"error": "A primary key is required for PUT/DELETE."}, status=status.HTTP_400_BAD_REQUEST)
@@ -336,6 +274,8 @@ def create_appointment_view(request, pk=None):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Appointments.DoesNotExist:
             return Response({"error": "Appointment not found or you don't have permission."}, status=status.HTTP_404_NOT_FOUND)
+
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -597,6 +537,7 @@ def set_unavailability_view(request, pk=None):
 
 
 
+
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def user_notification_view(request):
@@ -618,6 +559,7 @@ def user_notification_view(request):
         )
 
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def chatbot_id(request):
@@ -628,3 +570,139 @@ def chatbot_id(request):
             return Response({"id": chatbot.pk}, status=status.HTTP_200_OK)
         except Chatbot.DoesNotExist:
             return Response({"error": "Chatbot not found or you don't have permission."}, status=status.HTTP_404_NOT_FOUND)
+
+from datetime import datetime, date, time 
+from django.utils import timezone
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def recent_appointments(request):
+   
+    try:
+        user_services = Services.objects.filter(user=request.user)
+        current_datetime = timezone.now()
+
+        recent_appointments = Appointments.objects.filter(
+            service__in=user_services,
+            date__gte = datetime.today()
+        ).order_by('-created_at')
+     
+        paginator = PageNumberPagination()
+        paginator.page_size = 10         
+        paginated_queryset = paginator.paginate_queryset(recent_appointments, request)    
+         
+        serializer = AppointmentsSerializer(paginated_queryset, many=True)
+
+       
+        return paginator.get_paginated_response(serializer.data)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+
+from rest_framework import status
+from django.shortcuts import get_object_or_404
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from django.conf import settings
+from .models import Appointments
+
+@api_view(['PATCH'])
+def cancel_appointment_status(request, pk):
+    
+    appointment = get_object_or_404(Appointments, pk=pk)
+    old_status = appointment.status
+    if appointment.service.user != request.user:
+        return Response(
+            {"message": "You are not authorized to reschedule this appointment."},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    new_status = request.data.get('status')
+    cancel_reason = request.data.get('cancel_reason')
+
+    if new_status:
+        appointment.status = new_status
+    if cancel_reason is not None:
+        appointment.cancel_reason = cancel_reason
+    
+    appointment.save(update_fields=['status', 'cancel_reason'])
+
+    # Check if the status has actually changed
+    if appointment.status != old_status:
+        
+        # Determine the email subject and message based on the new status
+        if appointment.status == 'CANCELED':
+            subject = 'Your Appointment Has Been Canceled'            
+            message = f'Dear {appointment.customer_name}, This is to inform you that your appointment for **{ appointment.service.service_name }** on { appointment.date } at { appointment.time } has been **CANCELED** for {cancel_reason}.'
+            from_email = 'support@gameplanai.co.uk'
+            recipient_list = [appointment.customer_email]
+
+            email_message = EmailMessage(subject, message, from_email, recipient_list)
+            email_message.send()     
+        
+            return Response(
+                {"message": "Appointment updated successfully and email sent."},
+                status=status.HTTP_200_OK
+            )
+    else:
+        return Response({"message": f"your appointment status is already {appointment.status }"},
+            status=status.HTTP_200_OK)
+    
+
+@api_view(['PATCH'])
+def reschedule_appointment_status(request, pk):
+    
+    
+    appointment = get_object_or_404(Appointments, pk=pk)  
+    old_status = appointment.status 
+    if old_status == 'CANCELED':
+        return Response(
+            {"message": "You are not allowed to reschedule a canceled appointment."},
+            status=status.HTTP_403_FORBIDDEN
+        ) 
+
+    if appointment.service.user != request.user:
+        return Response(
+            {"message": "You are not authorized to reschedule this appointment."},
+            status=status.HTTP_403_FORBIDDEN
+        )  
+
+    new_status = request.data.get('status')
+    reschedule_reason = request.data.get('reschedule_reason')
+    reschedule_date = request.data.get('date')
+    reschedule_time = request.data.get('time')
+
+    if new_status == 'RESCHEDULED':
+        appointment.status = new_status
+        appointment.date = reschedule_date
+        appointment.time =  reschedule_time    
+        appointment.reschedule_reason = reschedule_reason
+        appointment.reschedule = True
+    
+    appointment.save() 
+          
+       
+    if appointment.status == 'RESCHEDULED':
+        subject = 'Your Appointment Has Been Reschedule'            
+        message = f'Dear {appointment.customer_name}, This is to inform you that your appointment for **{ appointment.service.service_name }** on { appointment.date } at { appointment.time } has been **RESCHEDULE reschedule** for {reschedule_reason}.'
+        from_email = 'support@gameplanai.co.uk'
+        recipient_list = [appointment.customer_email]
+
+        email_message = EmailMessage(subject, message, from_email, recipient_list)
+        email_message.send()     
+    
+        return Response(
+            {"message": "Appointment updated successfully and email sent."},
+            status=status.HTTP_200_OK
+        )
+    
+    else:
+        return Response({"message": f"your appointment status is already {appointment.status }"},
+            status=status.HTTP_200_OK)
+    

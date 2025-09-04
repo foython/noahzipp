@@ -46,20 +46,13 @@ class ServiceDiscountAdmin(admin.ModelAdmin):
         }),
     )
 
-# Admin class for the Appointments model
-# @admin.register(Appointments)
-# class AppointmentsAdmin(admin.ModelAdmin):
-#     list_display = ('customer', 'service', 'date', 'time', 'status')
-#     search_fields = ('customer', 'contact')
-#     list_filter = ('status', 'date')
-#     fieldsets = (
-#         (None, {
-#             'fields': (
-#                 'service', 'Description_of_service', 'customer', 
-#                 'contact', 'date', 'time', 'about', 'status'
-#             )
-#         }),
-#     )
+
+@admin.register(Appointments)
+class AppointmentsAdmin(admin.ModelAdmin):    
+    search_fields = ('customer', 'contact')
+    list_filter = ('status', 'date')
+   
+    
 
 admin.site.register(User_avalablity)
 admin.site.register(User_unavailability)

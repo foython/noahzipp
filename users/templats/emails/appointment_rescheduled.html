@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Appointment Rescheduled</title>
+</head>
+<body>
+    <p>Dear {{ appointment.customer_name }},</p>
+    <p>This is to confirm that your appointment for **{{ appointment.service.service_name }}** has been **RESCHEDULED**.</p>
+    
+    <p>New Appointment Details:</p>
+    <ul>
+        <li>**Date:** {{ appointment.date }}</li>
+        <li>**Time:** {{ appointment.time }}</li>
+    </ul>
+
+    <p>We look forward to seeing you at your new appointment time.</p>
+</body>
+</html>

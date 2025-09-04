@@ -78,7 +78,10 @@ class Appointments(TimeStamp):
     date = models.DateField(blank=True)      
     time = models.CharField(max_length=8, blank=True, validators=[time_validator])    
     about = models.TextField(blank=True)
-    status = models.CharField(max_length=28, choices=STATUS, default='ACTIVE')   
+    status = models.CharField(max_length=28, choices=STATUS, default='ACTIVE')  
+    cancel_reason = models.TextField(blank=True) 
+    reschedule = models.BooleanField(default=False)
+    reschedule_reason = models.TextField(blank=True)
 
     def __str__(self):
         return self.customer_name + ' - ' + str(self.date) + ' ' + str(self.time)

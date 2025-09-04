@@ -47,7 +47,7 @@ class CustomUser(AbstractUser, TimeStamp):
     subsciption_expires_on = models.DateTimeField(blank=True, null=True)
     subscription_status = models.CharField(max_length=100, blank=True,)
     subscription_id = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=10, choices=STATUS, default='ACTIVE')
+    status = models.CharField(max_length=10, choices=STATUS, default='HOLD')
     
 
     def generate_otp(self):

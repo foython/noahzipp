@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Appointment Canceled</title>
+</head>
+<body>
+    <p>Dear {{ appointment.customer_name }},</p>
+    <p>This is to inform you that your appointment for **{{ appointment.service.service_name }}** on {{ appointment.date }} at {{ appointment.time }} has been **CANCELED**.</p>
+    
+    {% if appointment.cancel_reason %}
+        <p>Reason for cancellation: {{ appointment.cancel_reason }}</p>
+    {% endif %}
+
+    <p>If you have any questions, please contact us.</p>
+</body>
+</html>

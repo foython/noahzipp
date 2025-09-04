@@ -1,16 +1,23 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-
-# models import
+from .models import SubscriptionPlan
+from .serializers import SubscriptionPlanSerializer
+from django.shortcuts import get_object_or_404
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.generics import get_object_or_404
+from rest_framework.permissions import BasePermission, IsAuthenticated
+from django.contrib.auth import get_user_model
+from datetime import datetime, timedelta
+from accounts.serializers import CustomUserSerializer
 from accounts.models import CustomUser
-
 from django.conf import settings
 from django.http import JsonResponse
 import os, json
 from dotenv import load_dotenv 
 load_dotenv()
+CustomUser = get_user_model()
 
 import stripe
 stripe.api_key = os.getenv("STRIPE_API_KEY")
@@ -95,22 +102,7 @@ def cancel_subscription(request):
         return Response({"Message": "Subscription Cancelled Successfully."}, status=status.HTTP_200_OK)
     except:
         return Response({"Message": "Subscription Already Cancelled."}, status=status.HTTP_200_OK)
-    
 
-
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import SubscriptionPlan
-from .serializers import SubscriptionPlanSerializer
-from django.shortcuts import get_object_or_404
-
-from rest_framework import status
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import BasePermission, IsAuthenticated
 
 
 
@@ -155,16 +147,8 @@ class SubscriptionPlanView(APIView):
         plan = get_object_or_404(SubscriptionPlan, pk=pk)
         plan.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
 
 
-from rest_framework import status
-from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
-from datetime import datetime, timedelta
-from accounts.serializers import CustomUserSerializer
-
-CustomUser = get_user_model()
 
 
 @api_view(['GET', 'PATCH'])
@@ -177,7 +161,7 @@ def subscribe_user_view(request, pk=None):
     if request.method == 'GET':
         if pk:
             try:
-                user = CustomUser.objects.get(pk=pk, is_subscribed=True)
+                user = CustomUser.objects.get(pk=pk)
                 serializer = CustomUserSerializer(user)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except CustomUser.DoesNotExist:
@@ -189,6 +173,10 @@ def subscribe_user_view(request, pk=None):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
     elif request.method == 'PATCH':
+        if request.user.role != 'ADMIN':
+            return Response({"detail": "You do not have permission to perform this action."},
+                            status=status.HTTP_403_FORBIDDEN)
+        
         if not pk:
             return Response({"detail": "User ID is required in the URL to update."},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -198,15 +186,32 @@ def subscribe_user_view(request, pk=None):
         except CustomUser.DoesNotExist:
             return Response({"detail": "User not found."},
                             status=status.HTTP_404_NOT_FOUND)
+        
+        # Check if a 'status' change is requested
+        if 'status' in request.data:
+            new_status = request.data.get('status')
+            valid_statuses = [s[0] for s in CustomUser.STATUS]
+            
+            if new_status not in valid_statuses:
+                return Response(
+                    {"detail": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            user_to_update.status = new_status
+            user_to_update.save()
+            
+            serializer = CustomUserSerializer(user_to_update)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # Check for subscription status update
         subscription_status = request.data.get('subscription_status')
         
-        if user_to_update.is_subscribed and user_to_update.subscription_status == subscription_status:
-            return Response({"detail": "User is already subscribed."},
-                            status=status.HTTP_409_CONFLICT)
-        
-        
         if subscription_status:
-        
+            if user_to_update.is_subscribed and user_to_update.subscription_status == subscription_status:
+                return Response({"detail": "User is already subscribed."},
+                                status=status.HTTP_409_CONFLICT)
+            
             valid_packages = ['MONTHLY', 'QUARTERLY', 'HALF YEARLY', 'YEARLY']
             if subscription_status not in valid_packages:
                 return Response(
@@ -214,10 +219,8 @@ def subscribe_user_view(request, pk=None):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-           
             user_to_update.subscription_status = subscription_status
-            user_to_update.is_subscribed = True  
-
+            user_to_update.is_subscribed = True
            
             if subscription_status == 'MONTHLY':
                 user_to_update.subsciption_expires_on = datetime.now() + timedelta(days=30)
@@ -228,20 +231,16 @@ def subscribe_user_view(request, pk=None):
             elif subscription_status == 'YEARLY':
                 user_to_update.subsciption_expires_on = datetime.now() + timedelta(days=365)
             
-            
             user_to_update.save()
-            
             
             serializer = CustomUserSerializer(user_to_update)
             return Response(serializer.data, status=status.HTTP_200_OK)
         
-        else:
-            
-            return Response(
-                {"detail": "The 'subscription_status' field is required to update subscription data."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
+        # Handle cases where neither status nor subscription_status is provided
+        return Response(
+            {"detail": "The 'subscription_status' or 'status' field is required to update data."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
         
 
 @api_view(['GET'])
