@@ -15,9 +15,10 @@ from django.contrib.auth import authenticate
 from django.utils import timezone
 from datetime import timedelta
 from django.core import signing
+from admin_app.models import AdminNotification
 
 
-# Create your views here.
+
 User = get_user_model()
 
 import random
@@ -37,27 +38,27 @@ def normal_register(request):
             status=400
         )
     
-    # Check if a user with this email already exists
+   
     user = User.objects.filter(username=email).first()
 
     if user:
-        # User already exists
+       
         if not user.is_varified:
-            # User exists but is not verified, resend OTP
+            
             otp = user.generate_otp()
-            # Send email code...
+            
             return Response(
                 {"Message": "User already exists but is not verified. A new OTP has been sent."},
                 status=200
             )
         else:
-            # User already exists and is verified
+            
             return Response(
                 {"Message": "The email is already registered."},
                 status=400
             )
     
-    # If we get here, no user exists, so create a new one
+   
     try:
         user = User(username=email, email=email)
         user.set_password(password)
@@ -65,7 +66,7 @@ def normal_register(request):
 
         otp = user.generate_otp()
         
-        # Email sending logic
+       
         subject = 'Here is your verification code'
         message = f'Hello, please verify your account with the OTP: {otp}'
         from_email = 'support@gameplanai.co.uk'
@@ -99,6 +100,7 @@ def verify_otp(request):
             user.is_varified = True
             user.otp = None  
             user.save()
+            Notification = AdminNotification.objects.create(message='New user registered')
             return Response(
                 {
                     "Message": "Successfully verified your OTP."

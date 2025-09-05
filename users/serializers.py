@@ -22,7 +22,7 @@ class ServiceDiscountSerializer(serializers.ModelSerializer):
         ]
 
 class ServicesSerializer(serializers.ModelSerializer):
-    # Change the field name to 'service_discount' to match the related_name
+    
     service_discount = ServiceDiscountSerializer(many=True, read_only=True)
     
     class Meta:

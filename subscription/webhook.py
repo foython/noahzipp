@@ -8,6 +8,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.models import User
 import os
+from admin_app.models import AdminNotification
 from dotenv import load_dotenv 
 load_dotenv()
 
@@ -80,6 +81,7 @@ def handle_subscription_started(user_id, package, subscription_id):
         user_profile.subscription_id = subscription_id
                 
         user_profile.save()
+        Notification = AdminNotification.objects.create(message=f'You got a new Subscription of User {user_profile.email}')
 
         print(f"Subscription activated for user {user_id}.")
 

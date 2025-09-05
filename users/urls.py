@@ -24,6 +24,7 @@ urlpatterns = [
     path('set-unavailability/<int:pk>/', set_unavailability_view, name='unavailability-detail'),
     path('set-unavailability/', set_unavailability_view, name='set-unavailability'),
     path('notifications/', user_notification_view, name='user-notifications-list'),
+    path('notifications/<int:pk>/', user_notification_view, name='user-notifications-list'),
     path('recent_apinments/', recent_appointments, name='recent_apinments-list'),
 
 ]

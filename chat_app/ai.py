@@ -11,9 +11,11 @@ o = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
  
  
 def booking_assistant(
-    current_date_time, current_query, chatting_style, conversation_history = None, users_availability = None, user_unavailability = None, appointments=None, service= None, chatbot_name = None, professional_background = None
+    current_date_time, current_query, chatting_style, chatbot_name, conversation_history = None, users_availability = None, user_unavailability = None, appointments=None, service= None, professional_background = None
 ):
+    print(f"AI DATA: {chatbot_name}")
     try:
+        
         system_message = {
             "role": "system",
             "content": (

@@ -11,7 +11,7 @@ from accounts.models import CustomUser
 from accounts.serializers import CustomUserSerializer
 import json
 from django.shortcuts import get_object_or_404
-
+from users.models import user_notification
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -29,16 +29,17 @@ def send_message(request, unique_id):
         if not message or not unique_id:
             return Response({"error": "Message and unique_id are required"}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Use get_object_or_404 for clean error handling
+        
         chat_bot = get_object_or_404(Chatbot, pk=unique_id)
+        bot_name = chat_bot.name
         
         chating_style = chat_bot.chatting_style
         
-        # Get and serialize user availability data
+        
         availability_queryset = User_avalablity.objects.filter(user=chat_bot.owner.id)
         user_availability_data = UserAvailabilitySerializer(availability_queryset, many=True).data
         
-        # Get services and their IDs
+        
         services_queryset = Services.objects.filter(user=chat_bot.owner.id)
         service_ids = services_queryset.values_list('id', flat=True)
         services_data = ServicesSerializer(services_queryset, many=True).data
@@ -46,35 +47,35 @@ def send_message(request, unique_id):
         user = CustomUser.objects.get(id=chat_bot.owner.id)
         professional_background = user.professional_background
         
-        # Filter appointments using the list of service IDs
+       
         appointments_queryset = Appointments.objects.filter(service__in=service_ids)
         appointments_data = AppointmentsSerializer(appointments_queryset, many=True).data
 
-        # Call the booking assistant function with all necessary data
+
+        print(f"Main endpoint: {bot_name}")
         bot_response_json = booking_assistant(
             current_datetime, 
             message, 
             chating_style, 
+            bot_name,
             previous_conversation, 
             user_availability_data, 
             appointments_data, 
-            services_data, 
-            chat_bot.name, 
+            services_data,  
             professional_background
         )
         
-        # Parse the JSON response from the chatbot
+        
         bot_response_dict = json.loads(bot_response_json)
         response = bot_response_dict["response"]
         
-        # Conditionally save the appointment if confirmed
+       
         confirmed_booking = bot_response_dict.get("confirmed_booking", "no")
         if confirmed_booking.lower() == 'yes':
             try:
-                # Retrieve the correct service instance
-                service = Services.objects.get(id=bot_response_dict["service_id"])
                 
-                # Create and save a new Appointments instance
+                service = Services.objects.get(id=bot_response_dict["service_id"])
+               
                 new_appointment = Appointments.objects.create(
                     service=service,
                     customer_name=bot_response_dict.get("customer_name"),
@@ -84,17 +85,18 @@ def send_message(request, unique_id):
                     # Ensure the date string matches the format '%Y-%m-%d'
                     date=datetime.strptime(bot_response_dict.get("date"), '%Y-%m-%d').date(), 
                     time=bot_response_dict.get("time"),
-                    about=bot_response_dict.get("about", ""), # Assumed a field in model
+                    about=bot_response_dict.get("about", ""), 
                     status='ACTIVE'
                 )
                 print(f'New appointment created: {new_appointment}')
+                notification = user_notification.objects.create(user=new_appointment.service.user, message=f'New Appointment Booked at {new_appointment.date}')
             except Services.DoesNotExist:
                 return Response({"error": "Service for the booking was not found."}, status=status.HTTP_400_BAD_REQUEST)
             except (ValueError, KeyError) as e:
-                # Catch specific errors for missing keys or incorrect date/time format
+                
                 return Response({"error": f"Booking data is incomplete or invalid: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Prepare the final response to the client
+
         data = {
             "bot_response": response,
             "image": f"http://localhost:5000/{chat_bot.logo.url}"
@@ -104,7 +106,7 @@ def send_message(request, unique_id):
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON from bot_response"}, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
-        # A general catch-all for any other unexpected errors
+        
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 

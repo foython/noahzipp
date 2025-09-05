@@ -12,6 +12,7 @@ from django.db import IntegrityError
 from django.db.models import Q
 from datetime import datetime, date, time 
 from rest_framework.pagination import PageNumberPagination
+from .models import user_notification
 
 @extend_schema(request=ChatbotSerializer,responses={201: ChatbotSerializer},)
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
@@ -193,8 +194,12 @@ def manage_discounts(request, pk=None):
         elif request.method == 'DELETE':
             discount.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        
+
 
 from .utils import validate_appointment_creation
+
+
 
 @extend_schema(request=AppointmentsSerializer, responses={201: AppointmentsSerializer})
 @api_view(['GET', 'POST', 'PUT', 'DELETE'])
@@ -238,14 +243,14 @@ def create_appointment_view(request, pk=None):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Call the reusable validation function
+        
         validation_response = validate_appointment_creation(serializer.validated_data, service_provider)
         
-        # If the function returns a response, it means a validation check failed.
+        
         if validation_response:
             return validation_response
 
-        # If validation passes, save the serializer
+        
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
@@ -261,6 +266,7 @@ def create_appointment_view(request, pk=None):
         serializer = AppointmentsSerializer(appointment, data=request.data)
         if serializer.is_valid():
             serializer.save()
+            notification = user_notification.objects.create(user=appointment.service.user, message=f'New Appointment Booked at {appointment.date}')
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -538,18 +544,18 @@ def set_unavailability_view(request, pk=None):
 
 
 
-@api_view(['GET', 'PATCH'])
+@api_view(['GET', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
-def user_notification_view(request):
+def user_notification_view(request, pk=None):
+    
     if request.method == 'GET':
-        # Retrieve all notifications for the current user
+        # Retrieve all notifications for the authenticated user, ordered by creation date.
         queryset = user_notification.objects.filter(user=request.user).order_by('-created_at')         
-            
         serializer = UserNotificationSerializer(queryset, many=True)
         return Response(serializer.data)
 
     elif request.method == 'PATCH':
-        
+        # Mark all unread notifications for the user as read.
         unread_notifications = user_notification.objects.filter(user=request.user, is_read=False)
         updated_count = unread_notifications.update(is_read=True)
         
@@ -557,7 +563,30 @@ def user_notification_view(request):
             {"detail": f"{updated_count} notifications have been marked as read."},
             status=status.HTTP_200_OK
         )
-
+    
+    elif request.method == 'DELETE':
+        if pk:
+            # Delete a specific notification by ID for the authenticated user.
+            try:
+                notification_to_delete = user_notification.objects.get(pk=pk, user=request.user)
+                notification_to_delete.delete()
+                return Response(
+                    {"detail": f"Notification with ID {pk} successfully deleted."},
+                    status=status.HTTP_200_OK
+                )
+            except user_notification.DoesNotExist:
+                return Response(
+                    {"detail": f"Notification with ID {pk} not found or does not belong to the user."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        else:
+            # Delete all notifications for the authenticated user.
+            deleted_count, _ = user_notification.objects.filter(user=request.user).delete()
+            
+            return Response(
+                {"detail": f"Successfully deleted {deleted_count} notifications."},
+                status=status.HTTP_200_OK
+            )
 
 
 @api_view(['GET'])
@@ -571,7 +600,7 @@ def chatbot_id(request):
         except Chatbot.DoesNotExist:
             return Response({"error": "Chatbot not found or you don't have permission."}, status=status.HTTP_404_NOT_FOUND)
 
-from datetime import datetime, date, time 
+from datetime import datetime
 from django.utils import timezone
 
 
@@ -607,10 +636,8 @@ def recent_appointments(request):
 from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.core.mail import EmailMessage
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
-from django.conf import settings
 from .models import Appointments
+
 
 @api_view(['PATCH'])
 def cancel_appointment_status(request, pk):
@@ -633,10 +660,10 @@ def cancel_appointment_status(request, pk):
     
     appointment.save(update_fields=['status', 'cancel_reason'])
 
-    # Check if the status has actually changed
+   
     if appointment.status != old_status:
         
-        # Determine the email subject and message based on the new status
+        
         if appointment.status == 'CANCELED':
             subject = 'Your Appointment Has Been Canceled'            
             message = f'Dear {appointment.customer_name}, This is to inform you that your appointment for **{ appointment.service.service_name }** on { appointment.date } at { appointment.time } has been **CANCELED** for {cancel_reason}.'
@@ -657,52 +684,71 @@ def cancel_appointment_status(request, pk):
 
 @api_view(['PATCH'])
 def reschedule_appointment_status(request, pk):
-    
-    
-    appointment = get_object_or_404(Appointments, pk=pk)  
-    old_status = appointment.status 
+    appointment = get_object_or_404(Appointments, pk=pk)
+    old_status = appointment.status
+
     if old_status == 'CANCELED':
         return Response(
             {"message": "You are not allowed to reschedule a canceled appointment."},
             status=status.HTTP_403_FORBIDDEN
-        ) 
+        )
 
     if appointment.service.user != request.user:
         return Response(
             {"message": "You are not authorized to reschedule this appointment."},
             status=status.HTTP_403_FORBIDDEN
-        )  
+        )
 
+    
     new_status = request.data.get('status')
     reschedule_reason = request.data.get('reschedule_reason')
     reschedule_date = request.data.get('date')
     reschedule_time = request.data.get('time')
 
-    if new_status == 'RESCHEDULED':
-        appointment.status = new_status
-        appointment.date = reschedule_date
-        appointment.time =  reschedule_time    
-        appointment.reschedule_reason = reschedule_reason
-        appointment.reschedule = True
     
-    appointment.save() 
-          
-       
-    if appointment.status == 'RESCHEDULED':
-        subject = 'Your Appointment Has Been Reschedule'            
-        message = f'Dear {appointment.customer_name}, This is to inform you that your appointment for **{ appointment.service.service_name }** on { appointment.date } at { appointment.time } has been **RESCHEDULE reschedule** for {reschedule_reason}.'
-        from_email = 'support@gameplanai.co.uk'
-        recipient_list = [appointment.customer_email]
+    update_data = {
+        'status': new_status,
+        'date': reschedule_date,
+        'time': reschedule_time,
+        'reschedule_reason': reschedule_reason,
+        'reschedule': True if new_status == 'RESCHEDULED' else appointment.reschedule 
+    }
 
-        email_message = EmailMessage(subject, message, from_email, recipient_list)
-        email_message.send()     
-    
-        return Response(
-            {"message": "Appointment updated successfully and email sent."},
-            status=status.HTTP_200_OK
-        )
-    
+   
+    serializer = AppointmentsSerializer(appointment, data=update_data, partial=True)
+
+   
+    if serializer.is_valid():
+        
+        serializer.save()
+
+       
+        if appointment.status == 'RESCHEDULED':
+            subject = 'Your Appointment Has Been Rescheduled'
+            message = f'Dear {appointment.customer_name}, This is to inform you that your appointment for **{ appointment.service.service_name }** on { appointment.date } at { appointment.time } has been **RESCHEDULED**. Reason: {reschedule_reason}.'
+            from_email = 'support@gameplanai.co.uk'
+            recipient_list = [appointment.customer_email]
+
+            email_message = EmailMessage(subject, message, from_email, recipient_list)
+            try:
+                email_message.send()
+                return Response(
+                    {"message": "Appointment updated successfully and email sent."},
+                    status=status.HTTP_200_OK
+                )
+            except Exception as e:
+                
+                return Response(
+                    {"message": f"Appointment updated, but failed to send email. Error: {e}"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+        else:
+            
+            return Response(
+                {"message": f"Your appointment status is already {appointment.status }."},
+                status=status.HTTP_200_OK
+            )
     else:
-        return Response({"message": f"your appointment status is already {appointment.status }"},
-            status=status.HTTP_200_OK)
-    
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
