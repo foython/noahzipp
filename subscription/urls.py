@@ -14,5 +14,6 @@ urlpatterns = [
     path('subscribers/<int:pk>/', views.subscribe_user_view, name='subscribers_patch'),
     path('non-subscribers/', views.non_subscribe_user_view, name='nonsubscribers_list'),
     path('non-subscribers/<int:pk>/', views.non_subscribe_user_view, name='nonsubscribers'),
+    path('delete-subscribers/<int:pk>/', views.cancel_subscription_by_pk, name='delete-subscribers'),
 ]
 

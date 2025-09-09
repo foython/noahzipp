@@ -263,3 +263,41 @@ def non_subscribe_user_view(request, pk=None):
             subscribed_users = CustomUser.objects.filter(is_subscribed=False)
             serializer = CustomUserSerializer(subscribed_users, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
+        
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def cancel_subscription_by_pk(request, pk):
+      
+    try:     
+        user_profile = CustomUser.objects.get(pk=pk)
+
+        if user_profile.is_subscribed == True:                              
+      
+            user_profile.subscription_status = "cancelled"
+            user_profile.is_subscribed = False
+            user_profile.subsciption_expires_on = None
+            user_profile.save()
+
+            return Response(
+                {"Message": "Subscription Deleted Successfully."},
+                status=status.HTTP_200_OK
+            )
+    except CustomUser.DoesNotExist:
+
+        return Response(
+            {"Message": "User profile not found."},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    except stripe.error.StripeError as e:
+    
+        return Response(
+            {"Message": f"Stripe error: {e.user_message}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        return Response(
+            {"Message": f"An unexpected error occurred: {e}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

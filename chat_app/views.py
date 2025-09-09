@@ -92,8 +92,7 @@ def send_message(request, unique_id):
                 notification = user_notification.objects.create(user=new_appointment.service.user, message=f'New Appointment Booked at {new_appointment.date}')
             except Services.DoesNotExist:
                 return Response({"error": "Service for the booking was not found."}, status=status.HTTP_400_BAD_REQUEST)
-            except (ValueError, KeyError) as e:
-                
+            except (ValueError, KeyError) as e:                
                 return Response({"error": f"Booking data is incomplete or invalid: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -105,8 +104,7 @@ def send_message(request, unique_id):
     
     except json.JSONDecodeError:
         return Response({"error": "Invalid JSON from bot_response"}, status=status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        
+    except Exception as e:        
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 

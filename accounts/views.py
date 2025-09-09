@@ -7,7 +7,6 @@ from django.contrib.auth import get_user_model
 from django.core.mail import EmailMessage
 from .serializers import CustomUserSerializer
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
 from .models import CustomUser
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -16,15 +15,11 @@ from django.utils import timezone
 from datetime import timedelta
 from django.core import signing
 from admin_app.models import AdminNotification
-
-
-
-User = get_user_model()
-
 import random
 import string
 
 User = get_user_model()
+
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -36,15 +31,12 @@ def normal_register(request):
         return Response(
             {"Message": "Both Email and Passwords are required."},
             status=400
-        )
-    
+        )    
    
     user = User.objects.filter(username=email).first()
 
-    if user:
-       
-        if not user.is_varified:
-            
+    if user:       
+        if not user.is_varified:            
             otp = user.generate_otp()
             
             return Response(
@@ -132,8 +124,7 @@ def normal_login(request):
 
     if not email or not password:
         return Response({"Message": "Both Username and password are required."}, status=400)
-    
-    # Use the email as the username for authentication
+  
     user = authenticate(username=email, password=password)
 
     if user is not None:
@@ -142,8 +133,7 @@ def normal_login(request):
         
         return Response({
             'refresh': str(refresh),
-            'access': str(access_token),
-            # Corrected line: Pass the user object directly to the serializer
+            'access': str(access_token),          
             'user_profile': CustomUserSerializer(user).data
         }, status=status.HTTP_200_OK)
     else:

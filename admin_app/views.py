@@ -4,13 +4,20 @@ from rest_framework import viewsets, permissions
 from .models import PrivacyPolicy, FAQ
 from .serializers import PrivacyPolicySerializer, FAQSerializer, AdminNotificationSerializer
 from rest_framework import permissions
-
+from datetime import datetime, timedelta
 from .models import AdminNotification
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from accounts.models import CustomUser 
+from django.db.models import Count
+from django.db.models.functions import TruncMonth
+from django.contrib.auth import get_user_model
+from django.utils import timezone
+User = get_user_model()
+
+
 
 
 class IsAdminRole(permissions.BasePermission):   
@@ -107,3 +114,27 @@ def admin_notification_view(request, pk=None):
                 {"detail": f"Successfully deleted {deleted_count} notifications."},
                 status=status.HTTP_200_OK
             )
+
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def monthly_user_registrations_api_view(request):
+    two_years_ago = datetime.now() - timedelta(days=730)
+
+    user_registrations_by_month = CustomUser.objects.filter(
+        created_at__gte=two_years_ago
+    ).annotate(
+        month=TruncMonth('date_joined')
+    ).values(
+        'month'
+    ).annotate(
+        count=Count('id')
+    ).order_by(
+        'month'
+    )
+
+    serialized_data = list(user_registrations_by_month)
+
+    return Response(serialized_data, status=status.HTTP_200_OK)
