@@ -4,7 +4,6 @@ import os, json
 from dotenv import load_dotenv
  
  
- 
 load_dotenv()
  
 o = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -127,76 +126,119 @@ NOTE: Here the customer who want to book the services and user are those who wil
  
 
 
-from openai import OpenAI
-import os, json
-from dotenv import load_dotenv
+
  
  
-o = OpenAI(api_key="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")
+# open = OpenAI(api_key="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")
 
-
-
+faq = {
+    "What does your chatbot do?": "I help businesses automate conversations with customers — answering questions, booking appointments, and generating leads 24/7.",
+ 
+    "How can it help my business?": "I save you time by handling routine questions, increase customer engagement, and make sure you never miss a lead or booking.",
+ 
+    "How much does it cost?": "Pricing depends on the plan you choose. You can try it out before signing up (free trial available). To book a demo, you can schedule directly through my chatbot, choose a date/time that works best, and get instant confirmation.",
+ 
+    "How long does setup take?": "Most businesses are up and running in just a few hours.",
+ 
+    "Can it book appointments or handle scheduling?": "Absolutely – I can integrate with your calendar to schedule appointments automatically.",
+ 
+    "Can I customize the chatbot’s responses?": "Yes, everything can be tailored to fit your business and brand voice.",
+ 
+    "Does it integrate with my whole website?": "Yes! I can live on your website, with personal branding and customized responses.",
+ 
+    "Is my customer data safe?": "100%. We use secure, encrypted systems and you control all the data.",
+ 
+    "How do I get started?": "Just let me know you’re ready, and I’ll guide you step by step to set up your chatbot."
+}
+ 
+plan_info = {
+    "Free Plan": "Access to text-based chatbot only, limited queries per day.",
+    "Premium Plan": "$199/Half-Yearly** - Same benefits as Personal but billed half-yearly.",
+    "Platinum Plan": "$250/Yearly**  - Best value, includes all benefits billed yearly"
+}
+ 
 def dashboard_chatbot(
-    current_date_time, current_query, faq, plan_info, conversation_history=None,
+    current_date_time, current_query, plan_info, faq,
+    conversation_history=None, 
+    
+    
 ):
     try:
         system_message = {
-            "role": "system",
-            "content": f"""
-You are a professional and friendly customer service chatbot. Your primary goal is to assist users with information about subscription plans, answer FAQs, and guide them through the appointment booking process.
-
-**IMPORTANT INSTRUCTION: YOU MUST ALWAYS OUTPUT A VALID JSON OBJECT.**
-Your entire response must be nothing but a JSON object with the following structure:
+    "role": "system",
+    "content": f"""
+You are a professional and friendly chatbot.
+Your role is to:
+1. Assist customers with subscription plans.
+2. Strictly answer FAQ questions from the provided FAQ list. If the question is not in the FAQ, reply based on our service context.
+3. Explain how the chatbot works clearly, following the process below.
+ 
+# How the Bot Works (Flow):
+- First greet the customer warmly (only once at the very beginning of the conversation).
+- Provide three clear options:
+   1. Ask a Question
+   2. Talk to a Human
+ 
+# If the customer chooses "Ask a Question":
+- Use the FAQ data to strictly answer.
+- Be concise, professional, and friendly.
+ 
+# If the customer chooses "Talk to a Human":
+- Provide the official contact email: dummy@gmail.com and phone number: +99034524 of the business.
+ 
+# FAQ Data:
+- **What does your service do?**: "If you ask about our 'service' or 'how the service chatbot works', here’s the process:  
+    1. **Account Setup:** The user first opens an account on the platform.  
+    2. **Service & Pricing Configuration:** Add services they want to offer, apply discounts on those services if needed.  
+    3. **Availability Management:** Set available time slots for appointments, define unavailable times (holidays, breaks, vacations).  
+    4. **Chatbot Training:** Choose the chatbot’s conversation style, provide professional background details, assign a custom chatbot name, and upload a logo for branding.  
+    5. **Deployment:** The platform generates the chatbot script code, which can be easily integrated into their website.  
+    6. **Appointment Handling:** The chatbot manages bookings based on defined services and available time slots, with secure storage of appointments.  
+    7. **Management Tools:** Full CRUD operations (Create, Read, Update, Delete) on services, time slots, and appointments."
+ 
+- **What does service chatbot do?**: "The chatbot first collects the user’s Name, Email, and Phone Number, then presents a list of available services for selection. After the service is chosen, it shows the available time slots and confirms the appointment details with the user. Finally, the chatbot provides a confirmation to the user via email, and notifies the business owner/staff of the new appointment."
+ 
+# Benefits of the Platform:
+ 
+- Automates appointment booking and customer handling.
+- Saves time by reducing manual scheduling.
+- Provides flexibility with discounts, services, and availability.
+- Fully customizable chatbot for branding and personalization.
+- Seamless integration into any personal platform or website.
+- Ensures all appointments (automatic or manual) are organized in one central place.
+- Empowers businesses with complete control through CRUD operations.
+ 
+# Behavior Guidelines:
+- Greet only once at the start.
+- Stay professional, patient, and conversational.
+- Use only provided FAQ and subscription plan data.
+- Never invent features or answers outside provided data.
+ 
+**IMPORTANT: Always return a valid JSON:**
 {{ "bot_response": "Your natural language answer goes here." }}
-
-**Data to Use for Responses:**
-1.  **Subscription Plans:** {plan_info} - Use this strictly for any plan-related questions.
-2.  **FAQ:** {faq} - Use this strictly for any frequently asked questions.
-3.  **Current Date/Time:** {current_date_time} - Use this for context if needed for booking.
-4.  **Conversation History:** {conversation_history or 'No history'} - Use this to remember the context of the chat.
-
-**Booking Flow:** If a user wants to book an appointment, follow these steps:
-1. Collect their name, email, and phone number.
-2. Identify the service they want.
-3. Confirm the service details and price.
-4. Find a suitable date and time from available slots.
-5. Confirm the final booking.
-
-**Tone:** Be warm, conversational, and professional. Greet the user only if it's the first message.
-
-**Current User Query:** "{current_query}"
-
-Generate your response as a JSON object.
+ 
+# Data Provided:
+- Subscription Plans: {plan_info}
+- FAQs: {faq}
 """
-        }
-
-        messages = [system_message, {"role": "user", "content": current_query}]
-        
+}
+       
+ 
+        # If conversation history exists, include it
+        messages = [system_message]
+        if conversation_history:
+            messages.extend(conversation_history)
+        messages.append({"role": "user", "content": current_query})
+ 
         response = o.chat.completions.create(
             model="gpt-4o",
             messages=messages,
             temperature=0.3,
-            response_format={"type": "json_object"} 
+            response_format={"type": "json_object"}
         )
-        
-        if response.choices and response.choices[0].message.content:
-            
-            json_response_string = response.choices[0].message.content.strip()
-            
-          
-            parsed_response = json.loads(json_response_string)
-            
-            
-            return parsed_response
-            
-        else:
-            return {"bot_response": "Error: No valid response content was generated."}
-
-    except json.JSONDecodeError as e:
-       
-        print(f"JSON Decoding Error: {e}")
-        return {"bot_response": "I apologize, but I encountered an error processing your request. Please try again."}
+ 
+        return response.choices[0].message.content.strip() if response.choices else '{"bot_response": "Error: No response"}'
     except Exception as e:
-       
-        print(f"General Error in dashboard_chatbot: {e}")
-        return {"bot_response": "I apologize, but I'm experiencing a technical issue at the moment. Please try again shortly."}
+        print("Error in booking assistant:", e)
+        return '{"bot_response": "I encountered an error, please try again."}'
+ 

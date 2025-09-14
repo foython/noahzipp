@@ -132,7 +132,7 @@ def get_embedding(request):
         )
     
 
-
+from .ai import faq, plan_info
 
 @api_view(['POST'])
 def chatbot_for_website(request):
@@ -144,10 +144,10 @@ def chatbot_for_website(request):
         return Response({"error": "Message is required"}, status=status.HTTP_400_BAD_REQUEST)
     
    
-    faq = FAQ.objects.all()
-    subscription_plan = SubscriptionPlan.objects.all()    
+    # faq = FAQ.objects.all()
+    # subscription_plan = SubscriptionPlan.objects.all()    
    
-    bot_response = dashboard_chatbot(current_datetime, message, faq, subscription_plan, previous_conversation)
+    bot_response = dashboard_chatbot(current_datetime, message, faq, plan_info, previous_conversation)
     
     return Response(
         {
