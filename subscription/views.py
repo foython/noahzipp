@@ -25,8 +25,9 @@ stripe.api_key = os.getenv("STRIPE_API_KEY")
 
 
 prices = {
-    'monthly': 'price_1Rea3gH6fkQlm6OOM9jVmv5l',
-    'yearly': 'price_1ReyseH6fkQlm6OO9fqreTdq'
+    'premium': 'price_1S64xUJJcoHS3StRPdUkk5pT',
+    'quarterly': 'price_1S64wMJJcoHS3StR7ICJU0VR',
+    'basic': 'price_1S64vMJJcoHS3StROGSHIVlm'
 }
 
 @api_view(['POST'])

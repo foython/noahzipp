@@ -21,3 +21,10 @@ class AdminNotification(TimeStamp):
 
     def __str__(self):
         return self.user.username + ' - ' + self.message[:20] + ('...' if len(self.message) > 20 else '')
+    
+
+class Logo(TimeStamp):
+    image = models.ImageField(upload_to='logo/')
+    
+    def __str__(self):
+        return f"Logo {self.id}"

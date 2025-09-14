@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from users.models import Chatbot
 from rest_framework import status
-from .ai import booking_assistant
+from .ai import booking_assistant, dashboard_chatbot
 from users.models import Services, Appointments, User_avalablity, User_unavailability, service_discount, Chatbot
 from users.serializers import ServicesSerializer, ServiceDiscountSerializer, AppointmentsSerializer, UserAvailabilitySerializer, UserUnavailabilitySerializer, ChatbotSerializer
 from datetime import datetime
@@ -17,6 +17,8 @@ from rest_framework.response import Response
 from rest_framework import status
 import json
 from datetime import datetime
+from admin_app.models import FAQ
+from subscription.models import SubscriptionPlan
 
 
 @api_view(['POST'])
@@ -52,7 +54,7 @@ def send_message(request, unique_id):
         appointments_data = AppointmentsSerializer(appointments_queryset, many=True).data
 
 
-        print(f"Main endpoint: {bot_name}")
+        
         bot_response_json = booking_assistant(
             current_datetime, 
             message, 
@@ -65,7 +67,7 @@ def send_message(request, unique_id):
             professional_background
         )
         
-        
+        print("Bot response JSON:", bot_response_json)  # Debugging line
         bot_response_dict = json.loads(bot_response_json)
         response = bot_response_dict["response"]
         
@@ -128,3 +130,28 @@ def get_embedding(request):
             },
             status=400
         )
+    
+
+
+
+@api_view(['POST'])
+def chatbot_for_website(request):
+    current_datetime = datetime.now()
+
+    previous_conversation = request.data.get('previous_conversation')
+    message = request.data.get('message')
+    if not message:
+        return Response({"error": "Message is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+   
+    faq = FAQ.objects.all()
+    subscription_plan = SubscriptionPlan.objects.all()    
+   
+    bot_response = dashboard_chatbot(current_datetime, message, faq, subscription_plan, previous_conversation)
+    
+    return Response(
+        {
+            "bot_response": bot_response
+        },
+        status=200
+    )

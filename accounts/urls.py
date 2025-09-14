@@ -36,4 +36,5 @@ urlpatterns = [
     path('forgot_password/', views.forget_password, name='forgor_password'),
     path('forgot_password_verify_otp/', views.on_change_verify_otp, name='forgor_password_otp'),   
     path('forgot_password_change/', views.forgot_password_change, name='forgor_password_change'),
+    path('send_email/', views.send_contact_form, name='emailform_client'),
 ]

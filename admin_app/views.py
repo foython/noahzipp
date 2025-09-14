@@ -5,7 +5,7 @@ from .models import PrivacyPolicy, FAQ
 from .serializers import PrivacyPolicySerializer, FAQSerializer, AdminNotificationSerializer
 from rest_framework import permissions
 from datetime import datetime, timedelta
-from .models import AdminNotification
+from .models import AdminNotification, Logo
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -15,6 +15,7 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from rest_framework import viewsets, permissions
 User = get_user_model()
 
 
@@ -27,15 +28,24 @@ class IsAdminRole(permissions.BasePermission):
 
 class PrivacyPolicyViewSet(viewsets.ModelViewSet):    
     queryset = PrivacyPolicy.objects.all()
-    serializer_class = PrivacyPolicySerializer
-    permission_classes = [IsAdminRole]
+    serializer_class = PrivacyPolicySerializer    
 
-class FAQViewSet(viewsets.ModelViewSet):    
+    def get_permissions(self):       
+        if self.request.method == 'GET':            
+            return [permissions.AllowAny()]       
+        return [IsAdminRole()]
+
+
+
+
+class FAQViewSet(viewsets.ModelViewSet):
     queryset = FAQ.objects.all()
     serializer_class = FAQSerializer
-    permission_classes = [IsAdminRole]
 
-
+    def get_permissions(self):       
+        if self.request.method == 'GET':            
+            return [permissions.AllowAny()]       
+        return [IsAdminRole()]
 
 
 
@@ -138,3 +148,44 @@ def monthly_user_registrations_api_view(request):
     serialized_data = list(user_registrations_by_month)
 
     return Response(serialized_data, status=status.HTTP_200_OK)
+
+
+def dashboard_email(request):
+    return render(request, 'admin_app/dashboard_email.html', {})
+
+
+
+@api_view(['GET', 'POST'])
+def website_logo(request):
+    
+    if request.method == 'GET':
+        try:
+            logo_instance = Logo.objects.latest('id') 
+            logo_path = logo_instance.image.url
+            return Response({"logo_path": logo_path}, status=status.HTTP_200_OK)
+        except Logo.DoesNotExist:
+            return Response({"logo_path": None, "message": "No logo found."}, status=status.HTTP_200_OK)
+
+  
+    if request.method == 'POST':
+        if request.user.role != 'ADMIN':
+            return Response({"detail": "You do not have permission to perform this action."},
+                        status=status.HTTP_403_FORBIDDEN)
+        
+        image = request.FILES.get('image')
+        if not image:
+            return Response({"error": "No image provided."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            
+            logo_instance = Logo.objects.latest('id')
+            logo_instance.image = image
+            logo_instance.save()
+            return Response({"message": "Logo updated successfully."}, status=status.HTTP_200_OK)
+        except Logo.DoesNotExist:
+            
+            logo_instance = Logo.objects.create(image=image)
+            logo_instance.save()
+            return Response({"message": "Logo uploaded successfully."}, status=status.HTTP_201_CREATED)
+    
+    return Response({"error": "Invalid request method."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)

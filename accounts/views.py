@@ -518,3 +518,63 @@ def resend_otp(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.decorators import api_view
+from django.core.mail import EmailMessage
+
+@api_view(['POST'])
+def send_contact_form(request):   
+    try:
+        
+        name = request.data.get('name')
+        email = request.data.get('email')
+        phone_number = request.data.get('phone_number')
+        message = request.data.get('message')
+     
+        if not all([name, email, message]):
+            return Response(
+                {"Message": "Name, email, and message are required fields."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        subject = f'New Contact Form Submission from {name}'
+        
+        email_body = f"""
+        You have received a new message from your website's contact form.
+        
+        Name: {name}
+        Email: {email}
+        Phone Number: {phone_number if phone_number else 'Not provided'}
+        
+        Message:
+        {message}
+        """
+       
+        from_email = 'pialzoad@gmail.com' 
+        recipient_list = ['arafatofficial.ar1@gmail.com'] 
+       
+        email_message = EmailMessage(
+            subject=subject,
+            body=email_body,
+            from_email=from_email,
+            to=recipient_list
+        )
+        email_message.send()
+
+        return Response(
+            {"Message": "Successfully sent contact form email."},
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+       
+        print(f"An unexpected error occurred: {e}")
+        return Response(
+            {"Message": "An unexpected error occurred. Please try again later."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    

@@ -70,12 +70,15 @@ def handle_subscription_started(user_id, package, subscription_id):
         
         user_profile = CustomUser.objects.get(pk=user_id)
 
-        if package == "monthly":
-            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=30)
-            user_profile.subscription_status = "Monthly"
+        if package == "premium":
+            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=180)
+            user_profile.subscription_status = "Premium"
+        elif package == "quarterly":
+            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=90)
+            user_profile.subscription_status = "quarterly"
         else:
-            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=365)
-            user_profile.subscription_status = "Yearly"
+            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=30)
+            user_profile.subscription_status = "basic"
         
         user_profile.is_subscribed = True
         user_profile.subscription_id = subscription_id
@@ -95,12 +98,15 @@ def handle_subscription_renewal(user_id, package, subscription_id):
         user_profile = CustomUser.objects.get(pk=user_id)
         user_profile.subscription_status = 'subscribed'
         
-        if package == "monthly":
-            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=30)
-            user_profile.subscription_status = "Monthly"
+        if package == "premium":
+            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=180)
+            user_profile.subscription_status = "Premium"
+        elif package == "quarterly":
+            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=90)
+            user_profile.subscription_status = "quarterly"
         else:
-            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=365)
-            user_profile.subscription_status = "Yearly"
+            user_profile.subsciption_expires_on = timezone.now() + timedelta(days=30)
+            user_profile.subscription_status = "basic"
 
         user_profile.is_subscribed = True
         
